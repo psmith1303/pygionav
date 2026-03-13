@@ -6,7 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
-from typing import Optional
+from typing import List, Optional
 
 
 class C:
@@ -67,24 +67,33 @@ def display_header(play_num: int = 0, total_plays: int = 0,
     print()
 
 
-def display_now_playing(artist: str, album_name: str, genre: str,
-                        year: int, track_count: int, duration_str: str,
-                        filters_desc: str = ""):
+# Approximate terminal cell dimensions in pixels (used for sixel layout)
+_CELL_PX_W = 8
+_CELL_PX_H = 16
+
+
+def _make_possessive(name: str) -> str:
+    if name.endswith("ss"):
+        return f"{name}'s"
+    elif name.endswith("s"):
+        return f"{name}'"
+    return f"{name}'s"
+
+
+def _build_track_info_lines(artist: str, album_name: str, genre: str,
+                             year: int, track_count: int,
+                             duration_str: str,
+                             filters_desc: str = "") -> List[str]:
+    """Build formatted track-info lines (no leading indent)."""
+    lines: List[str] = []
     if filters_desc:
-        print(f"  {C.NORMAL}Playing works…{C.CYAN} {filters_desc}{C.RESET}")
-        print()
+        lines.append(
+            f"{C.NORMAL}Playing works…{C.CYAN} {filters_desc}{C.RESET}")
+        lines.append("")
 
-    # Possessive form
-    if artist.endswith("ss"):
-        poss = f"{artist}'s"
-    elif artist.endswith("s"):
-        poss = f"{artist}'"
-    else:
-        poss = f"{artist}'s"
-
-    print(f"    {C.YELLOW}{poss}{C.RESET}")
-    print(f"    {C.CYAN}{C.ITALIC}{album_name}{C.RESET}")
-    print()
+    lines.append(f"{C.YELLOW}{_make_possessive(artist)}{C.RESET}")
+    lines.append(f"{C.CYAN}{C.ITALIC}{album_name}{C.RESET}")
+    lines.append("")
 
     meta = []
     if genre:
@@ -93,8 +102,94 @@ def display_now_playing(artist: str, album_name: str, genre: str,
         meta.append(str(year))
     meta.append(f"{track_count} tracks")
     meta.append(f"Duration: {duration_str}")
-    print(f"    {C.NORMAL}{' · '.join(meta)}{C.RESET}")
+    lines.append(f"{C.NORMAL}{' · '.join(meta)}{C.RESET}")
+    return lines
+
+
+def display_now_playing(artist: str, album_name: str, genre: str,
+                        year: int, track_count: int, duration_str: str,
+                        filters_desc: str = ""):
+    lines = _build_track_info_lines(artist, album_name, genre, year,
+                                     track_count, duration_str, filters_desc)
+    for line in lines:
+        print(f"    {line}")
     print()
+
+
+def display_now_playing_with_art(
+        art_path: Optional[str], art_size: int,
+        artist: str, album_name: str, genre: str,
+        year: int, track_count: int, duration_str: str,
+        filters_desc: str = ""):
+    """Display album art on the left with track details to the right.
+
+    Falls back to text-only when art is unavailable, img2sixel is
+    missing, or the terminal is too narrow for side-by-side layout.
+    """
+    lines = _build_track_info_lines(artist, album_name, genre, year,
+                                     track_count, duration_str, filters_desc)
+
+    can_sixel = bool(
+        art_path and os.path.isfile(art_path)
+        and shutil.which("img2sixel"))
+
+    if not can_sixel:
+        for line in lines:
+            print(f"    {line}")
+        print()
+        return
+
+    left_margin = 2
+    gap = 3
+    img_cols = art_size // _CELL_PX_W
+    img_rows = art_size // _CELL_PX_H
+    text_offset = left_margin + img_cols + gap
+
+    # Fall back to stacked layout if the terminal is too narrow
+    if _tw() < text_offset + 30:
+        print(" " * left_margin, end="", flush=True)
+        try:
+            subprocess.run(["img2sixel", "-w", str(art_size), art_path],
+                           timeout=5, check=False)
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+        print()
+        for line in lines:
+            print(f"    {line}")
+        print()
+        return
+
+    # --- side-by-side layout ---
+    # Print the sixel image (cursor ends up below the image, column 0)
+    print(" " * left_margin, end="", flush=True)
+    try:
+        result = subprocess.run(
+            ["img2sixel", "-w", str(art_size), art_path], timeout=5)
+    except (subprocess.TimeoutExpired, OSError):
+        for line in lines:
+            print(f"    {line}")
+        print()
+        return
+    if result.returncode != 0:
+        for line in lines:
+            print(f"    {line}")
+        print()
+        return
+
+    # Move cursor back up to the top of the image area
+    sys.stdout.write(f"\033[{img_rows}A")
+
+    # Print each text line, offset to the right of the image
+    for line in lines:
+        sys.stdout.write(f"\033[{text_offset}C{line}\n")
+
+    # If the text was shorter than the image, advance past the image
+    remaining = img_rows - len(lines)
+    if remaining > 0:
+        sys.stdout.write(f"\033[{remaining}B")
+
+    print()
+    sys.stdout.flush()
 
 
 def display_progress(elapsed: int, total: int):

@@ -33,11 +33,11 @@ from config import PyGioNavConfig, get_excludes, load_config
 from database import PyGioNavDatabase
 from display import (
     C, display_download_progress, display_header, display_intercycle_pause,
-    display_message, display_now_playing, display_playback_finished,
+    display_message, display_now_playing_with_art, display_playback_finished,
     display_progress, display_recent_plays, display_scrobble_status,
     display_search_progress, display_stats, format_duration,
 )
-from player import AlbumPlayer, download_and_display_cover_art
+from player import AlbumPlayer, download_cover_art_file
 from subsonic_client import SubsonicClient, SubsonicError
 
 log = logging.getLogger("pygionav")
@@ -368,18 +368,21 @@ def play_session(client: SubsonicClient, db: PyGioNavDatabase,
         total_dur = album.duration or sum(s.duration for s in album.songs)
         dur_str = format_duration(total_dur)
 
-        # Display
+        # Download album art before display so we can lay out side-by-side
+        art_path = None
+        if show_art and album.cover_art:
+            art_path = download_cover_art_file(
+                client, album.cover_art, cfg.conf_dir, cfg.art_size)
+
+        # Display header + art (left) + track info (right)
         display_header(play_num=play_num, total_plays=selections,
                        db_name=cfg.db_name, mode="Database Play",
                        library=library_name)
-        display_now_playing(album.artist, album.name, album.genre,
-                            album.year, len(album.songs), dur_str,
-                            filters_desc)
-
-        # Album art
-        if show_art and album.cover_art:
-            download_and_display_cover_art(
-                client, album.cover_art, cfg.conf_dir, cfg.art_size)
+        display_now_playing_with_art(
+            art_path, cfg.art_size,
+            album.artist, album.name, album.genre,
+            album.year, len(album.songs), dur_str,
+            filters_desc)
 
         # Download + Play
         def on_dl(done, total, title):

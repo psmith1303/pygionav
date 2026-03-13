@@ -252,10 +252,10 @@ class AlbumPlayer:
 # Cover art helper
 # ------------------------------------------------------------------ #
 
-def download_and_display_cover_art(client: SubsonicClient,
-                                   cover_id: str, conf_dir: str,
-                                   size: int = 320) -> Optional[str]:
-    """Download cover art and optionally display it via sixel."""
+def download_cover_art_file(client: SubsonicClient,
+                            cover_id: str, conf_dir: str,
+                            size: int = 320) -> Optional[str]:
+    """Download cover art to a local file and return its path, or None."""
     if not cover_id:
         return None
 
@@ -264,12 +264,5 @@ def download_and_display_cover_art(client: SubsonicClient,
 
     if not client.download_cover_art(cover_id, art_path, size=size):
         return None
-
-    if shutil.which("img2sixel"):
-        try:
-            subprocess.run(["img2sixel", "-w", str(size), art_path],
-                           timeout=5, check=False)
-        except (subprocess.TimeoutExpired, OSError):
-            pass
 
     return art_path
