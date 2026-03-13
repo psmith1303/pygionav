@@ -1,0 +1,88 @@
+# =============================================================================
+# PyGioNav Configuration File
+# =============================================================================
+# Copy this file to ~/.local/share/pygionav/pygionav.conf
+# and edit to match your Navidrome setup.
+# =============================================================================
+
+[pygionav]
+
+# ---------------------------------------------------------------------------
+# Navidrome Connection
+# ---------------------------------------------------------------------------
+server_url = http://localhost:4533
+username = your_username
+password = your_password
+
+# ---------------------------------------------------------------------------
+# Library (Music Folder)
+# ---------------------------------------------------------------------------
+# Name of the Navidrome library to use.  Leave empty to use all libraries.
+# Use --list-libraries to see available names on your server.
+# Example: if you have separate "Classical" and "Rock" libraries,
+# set this to "Classical" to only play from that collection.
+library = Classical
+
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+# Local SQLite database name (stored as <name>.db in the conf directory).
+db_name = music
+
+# ---------------------------------------------------------------------------
+# Playback
+# ---------------------------------------------------------------------------
+selections = 1
+pause_between = 10
+audio_device = default
+force_pulse = no
+
+# Transcoding: "raw" streams the original file (FLAC, etc).
+# Or specify "mp3", "opus", "ogg" for server-side transcoding.
+stream_format = raw
+stream_bitrate = 0
+
+# ---------------------------------------------------------------------------
+# Filtering
+# ---------------------------------------------------------------------------
+# Default filters for every session.  Override with CLI flags.
+# Append @ to negate (e.g. genre = Baroque@ means NOT Baroque).
+artist =
+genre =
+album =
+performer =
+min_duration = 0
+max_duration = 0
+
+# Time bar: don't repeat an artist within this many hours (0 = disabled)
+time_bar = 6
+
+# Only select artists/albums that have never been played (yes/no)
+unplayed_artist = no
+unplayed_works = no
+
+# ---------------------------------------------------------------------------
+# Scrobbling
+# ---------------------------------------------------------------------------
+# Scrobble plays via Navidrome's Subsonic API.  If you have Last.fm or
+# ListenBrainz configured in Navidrome, plays will propagate automatically.
+scrobble = yes
+
+# ---------------------------------------------------------------------------
+# Display
+# ---------------------------------------------------------------------------
+show_album_art = yes
+art_size = 320
+
+# ---------------------------------------------------------------------------
+# Debugging
+# ---------------------------------------------------------------------------
+# Enable verbose logging to stderr and to <conf_dir>/debug.log.
+# Can also be toggled with the --debug CLI flag.
+debug = no
+
+# ---------------------------------------------------------------------------
+# Paths (usually fine as defaults)
+# ---------------------------------------------------------------------------
+# conf_dir = ~/.local/share/pygionav
+# excludes_file = ~/.local/share/pygionav/excludes.txt

@@ -1,0 +1,40 @@
+# -----------------------------------------------
+# PyGioNav .gitignore
+# -----------------------------------------------
+
+# CREDENTIALS — the real config file contains your Navidrome password.
+# Only the .example file belongs in the repo.
+pygionav.conf
+
+# Runtime data directory (databases, cache, logs, album art)
+*.db
+*.db-wal
+*.db-shm
+debug.log
+albumart.jpg
+excludes.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.whl
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
