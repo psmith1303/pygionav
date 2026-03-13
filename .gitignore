@@ -16,6 +16,7 @@ excludes.txt
 
 # Python
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *.pyo
 *.egg-info/

@@ -20,6 +20,8 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
 API_VERSION = "1.16.1"
@@ -153,6 +155,11 @@ class SubsonicClient:
         self.password = password
         self.timeout = timeout
         self.session = requests.Session()
+        retry = Retry(total=3, backoff_factor=1,
+                      status_forcelist=[502, 503, 504])
+        adapter = HTTPAdapter(max_retries=retry)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
     def _auth_params(self) -> Dict[str, str]:
         salt = secrets.token_hex(12)
@@ -412,7 +419,8 @@ class SubsonicClient:
                 for chunk in resp.iter_content(chunk_size=8192):
                     f.write(chunk)
             return True
-        except Exception:
+        except Exception as exc:
+            log.error("Failed to download cover art %s: %s", cover_id, exc)
             return False
 
     # ---- annotation ----------------------------------------------- #

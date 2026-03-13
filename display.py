@@ -4,6 +4,7 @@ Terminal display routines for PyGioNav.
 
 import os
 import shutil
+import subprocess
 import sys
 from typing import Optional
 
@@ -33,7 +34,7 @@ def _tw() -> int:
 
 
 def clear():
-    os.system("cls" if os.name == "nt" else "clear")
+    subprocess.run(["cls" if os.name == "nt" else "clear"], check=False)
 
 
 def draw_line(char: str = LINE_SINGLE, width: Optional[int] = None):

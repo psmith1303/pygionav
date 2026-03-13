@@ -45,7 +45,7 @@ def _detect_audio_output() -> List[str]:
         r = subprocess.run(["pactl", "info"], capture_output=True, timeout=3)
         if r.returncode == 0:
             return ["-f", "pulse", "default"]
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired):
         pass
     return ["-f", "alsa", "default"]
 
@@ -129,7 +129,9 @@ class AlbumPlayer:
                 return None
 
             # Use disc-track numbering in the filename to keep sort order
-            ext = song.suffix or "flac"
+            # Sanitise extension — it comes from the server and could contain
+            # characters that break the ffmpeg concat playlist format.
+            ext = "".join(c for c in (song.suffix or "flac") if c.isalnum()) or "flac"
             fname = f"{song.disc:02d}-{song.track:03d}.{ext}"
             dest = os.path.join(cache_dir, fname)
 

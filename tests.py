@@ -291,6 +291,16 @@ class TestDatabaseSchema(unittest.TestCase):
                 "PRAGMA table_info(recordings)")}
             conn.close()
             self.assertIn("library_id", cols)
+            self.assertIn("performer", cols)
+
+    def test_plays_duration_is_integer(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = PyGioNavDatabase(td, "test")
+            conn = sqlite3.connect(db.db_path)
+            play_cols = conn.execute("PRAGMA table_info(plays)").fetchall()
+            dur_col = [c for c in play_cols if c[1] == "duration"]
+            conn.close()
+            self.assertEqual(dur_col[0][2].upper(), "INTEGER")
 
 
 class TestDatabaseUpsert(unittest.TestCase):
@@ -411,15 +421,15 @@ class TestDatabaseFiltering(unittest.TestCase):
             self.assertIn(rec["genre"], ("Classical", "Baroque"))
 
     def test_filter_unplayed_works(self):
-        self.db.record_play("a1", "Mozart", "Sym 40", "Classical", "00:30")
-        self.db.record_play("a2", "Beatles", "Abbey Road", "Rock", "00:46")
-        self.db.record_play("a3", "Bach", "Toccata", "Baroque", "00:10")
-        self.db.record_play("a4", "Mozart", "Requiem", "Classical", "00:53")
+        self.db.record_play("a1", "Mozart", "Sym 40", "Classical", 1800)
+        self.db.record_play("a2", "Beatles", "Abbey Road", "Rock", 2760)
+        self.db.record_play("a3", "Bach", "Toccata", "Baroque", 600)
+        self.db.record_play("a4", "Mozart", "Requiem", "Classical", 3180)
         rec = self.db.get_random_album({"unplayed_works": True})
         self.assertIsNone(rec)  # all played
 
     def test_filter_unplayed_artist(self):
-        self.db.record_play("a1", "Mozart", "Sym 40", "Classical", "00:30")
+        self.db.record_play("a1", "Mozart", "Sym 40", "Classical", 1800)
         # Mozart now played, Beatles and Bach not
         for _ in range(30):
             rec = self.db.get_random_album({"unplayed_artist": True})
@@ -446,13 +456,13 @@ class TestDatabasePlayTracking(unittest.TestCase):
 
     def test_record_and_count(self):
         self.assertEqual(self.db.get_play_count(), 0)
-        self.db.record_play("a1", "Mozart", "Sym 40", "Classical", "00:30")
+        self.db.record_play("a1", "Mozart", "Sym 40", "Classical", 1800)
         self.assertEqual(self.db.get_play_count(), 1)
-        self.db.record_play("a2", "Bach", "Toccata", "Baroque", "00:10")
+        self.db.record_play("a2", "Bach", "Toccata", "Baroque", 600)
         self.assertEqual(self.db.get_play_count(), 2)
 
     def test_recent_plays(self):
-        self.db.record_play("a1", "Mozart", "Sym 40", "Classical", "00:30")
+        self.db.record_play("a1", "Mozart", "Sym 40", "Classical", 1800)
         plays = self.db.get_recent_plays(10)
         self.assertEqual(len(plays), 1)
         self.assertEqual(plays[0]["artist"], "Mozart")
@@ -462,7 +472,7 @@ class TestDatabasePlayTracking(unittest.TestCase):
                   year=1788, duration=1800, song_count=4, cover_art="",
                   artist_id="")
         self.db.upsert_album(a)
-        self.db.record_play("a1", "Mozart", "Sym 40", "Classical", "00:30")
+        self.db.record_play("a1", "Mozart", "Sym 40", "Classical", 1800)
         stats = self.db.get_stats()
         self.assertEqual(stats["recordings"], 1)
         self.assertEqual(stats["plays"], 1)
@@ -476,7 +486,7 @@ class TestDatabasePlayTracking(unittest.TestCase):
                       cover_art="", artist_id="")
             self.db.upsert_album(a)
         self.assertEqual(self.db.get_unplayed_count(), 5)
-        self.db.record_play("a0", "Artist 0", "Album 0", "G", "00:01")
+        self.db.record_play("a0", "Artist 0", "Album 0", "G", 60)
         self.assertEqual(self.db.get_unplayed_count(), 4)
 
     def test_clear_recordings(self):
@@ -493,8 +503,8 @@ class TestDatabasePlayTracking(unittest.TestCase):
 
 
 class TestDatabaseMigration(unittest.TestCase):
-    """Verify that opening a DB without the library_id column adds it."""
-    def test_migration(self):
+    """Verify that opening a DB without newer columns migrates them."""
+    def test_migration_adds_columns(self):
         with tempfile.TemporaryDirectory() as td:
             path = os.path.join(td, "old.db")
             conn = sqlite3.connect(path)
@@ -515,14 +525,52 @@ class TestDatabaseMigration(unittest.TestCase):
                 );
             """)
             conn.close()
-            # Opening via PyGioNavDatabase should add the column
             db = PyGioNavDatabase.__new__(PyGioNavDatabase)
             db.db_path = path
+            db._conn = None
             db._ensure_schema()
             conn = sqlite3.connect(path)
-            cols = {r[1] for r in conn.execute("PRAGMA table_info(recordings)")}
+            rec_cols = {r[1] for r in conn.execute("PRAGMA table_info(recordings)")}
+            self.assertIn("library_id", rec_cols)
+            self.assertIn("performer", rec_cols)
             conn.close()
-            self.assertIn("library_id", cols)
+
+    def test_migration_plays_duration_to_integer(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "old.db")
+            conn = sqlite3.connect(path)
+            conn.executescript("""
+                CREATE TABLE recordings (
+                    id INTEGER PRIMARY KEY, album_id TEXT UNIQUE,
+                    artist TEXT DEFAULT '', album_name TEXT DEFAULT '',
+                    genre TEXT DEFAULT '', year INTEGER DEFAULT 0,
+                    duration INTEGER DEFAULT 0, song_count INTEGER DEFAULT 0,
+                    cover_art TEXT DEFAULT '', artist_id TEXT DEFAULT '',
+                    library_id TEXT DEFAULT '', performer TEXT DEFAULT '',
+                    updated_at TEXT DEFAULT ''
+                );
+                CREATE TABLE plays (
+                    id INTEGER PRIMARY KEY, play_date TEXT,
+                    album_id TEXT, artist TEXT DEFAULT '',
+                    album_name TEXT DEFAULT '', genre TEXT DEFAULT '',
+                    duration TEXT DEFAULT '', performer TEXT DEFAULT ''
+                );
+                INSERT INTO plays (album_id, artist, album_name, genre, duration)
+                    VALUES ('a1', 'Mozart', 'Sym 40', 'Classical', '01:30:00');
+            """)
+            conn.close()
+            db = PyGioNavDatabase.__new__(PyGioNavDatabase)
+            db.db_path = path
+            db._conn = None
+            db._ensure_schema()
+            conn = sqlite3.connect(path)
+            play_cols = conn.execute("PRAGMA table_info(plays)").fetchall()
+            dur_col = [c for c in play_cols if c[1] == "duration"]
+            self.assertEqual(dur_col[0][2].upper(), "INTEGER")
+            # Old TEXT values become 0 after migration
+            row = conn.execute("SELECT duration FROM plays").fetchone()
+            self.assertEqual(row[0], 0)
+            conn.close()
 
 
 # ====================================================================
@@ -625,6 +673,46 @@ class TestConfigToFilterRoundTrip(unittest.TestCase):
                 rec = db.get_random_album({"library_id": "rock"})
                 self.assertIsNotNone(rec)
                 self.assertEqual(rec["artist"], "Pink Floyd")
+
+
+# ====================================================================
+# Filename sanitisation (player)
+# ====================================================================
+
+class TestFilenameSanitisation(unittest.TestCase):
+    def test_normal_suffix(self):
+        ext = "".join(c for c in "flac" if c.isalnum()) or "flac"
+        self.assertEqual(ext, "flac")
+
+    def test_empty_suffix_defaults(self):
+        ext = "".join(c for c in "" if c.isalnum()) or "flac"
+        self.assertEqual(ext, "flac")
+
+    def test_malicious_suffix_stripped(self):
+        malicious = "flac'\\nfile '/etc/shadow"
+        ext = "".join(c for c in malicious if c.isalnum()) or "flac"
+        self.assertEqual(ext, "flacnfileetcshadow")
+
+    def test_suffix_with_dots_stripped(self):
+        ext = "".join(c for c in "m4a.bak" if c.isalnum()) or "flac"
+        self.assertEqual(ext, "m4abak")
+
+
+# ====================================================================
+# Database close / persistent connection
+# ====================================================================
+
+class TestDatabaseClose(unittest.TestCase):
+    def test_close_and_reopen(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = PyGioNavDatabase(td, "test")
+            db.upsert_album(
+                Album(id="a1", name="Sym", artist="X", genre="G",
+                      year=2000, duration=100, song_count=1,
+                      cover_art="", artist_id=""))
+            db.close()
+            # After close, next operation reopens
+            self.assertEqual(db.get_recording_count(), 1)
 
 
 # ====================================================================

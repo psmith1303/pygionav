@@ -42,8 +42,6 @@ from subsonic_client import SubsonicClient, SubsonicError
 
 log = logging.getLogger("pygionav")
 
-MAX_SEARCH_ATTEMPTS = 200
-
 
 # ------------------------------------------------------------------ #
 # CLI
@@ -83,6 +81,8 @@ def parse_args() -> argparse.Namespace:
                    help="Filter by genre (append @ to negate)")
     p.add_argument("--album", type=str, default=None,
                    help="Filter by album name (append @ to negate)")
+    p.add_argument("--performer", type=str, default=None,
+                   help="Filter by performer (append @ to negate)")
     p.add_argument("--min-duration", type=int, default=None,
                    help="Min album duration in minutes")
     p.add_argument("--max-duration", type=int, default=None,
@@ -217,6 +217,10 @@ def build_filters(cfg: PyGioNavConfig, args: argparse.Namespace,
     if album:
         f["album"] = album
 
+    performer = args.performer if args.performer is not None else cfg.performer
+    if performer:
+        f["performer"] = performer
+
     mn = args.min_duration if args.min_duration is not None else cfg.min_duration
     mx = args.max_duration if args.max_duration is not None else cfg.max_duration
     if mn > 0:
@@ -247,7 +251,7 @@ def build_filters(cfg: PyGioNavConfig, args: argparse.Namespace,
 def describe_filters(filters: Dict) -> str:
     parts = []
     for fkey, label in (("artist", "artist"), ("genre", "genre"),
-                        ("album", "album")):
+                        ("album", "album"), ("performer", "performer")):
         v = filters.get(fkey)
         if v:
             if v.endswith("@"):
@@ -330,19 +334,16 @@ def play_session(client: SubsonicClient, db: PyGioNavDatabase,
                        db_name=cfg.db_name, mode="Database Play",
                        library=library_name)
 
-        # Search
-        recording = None
-        for attempt in range(1, MAX_SEARCH_ATTEMPTS + 1):
-            display_search_progress(attempt, MAX_SEARCH_ATTEMPTS)
-            recording = db.get_random_album(filters)
-            if recording is not None:
-                break
-            time.sleep(0.02)
+        # Search — a single query suffices because the filters and data
+        # are deterministic; retrying with the same WHERE clause cannot
+        # produce a different result.
+        display_search_progress(1, 1)
+        recording = db.get_random_album(filters)
 
         if recording is None:
             print()
             display_message(
-                f"No matching album after {MAX_SEARCH_ATTEMPTS} attempts.\n"
+                "No matching album found.\n"
                 "  Broaden your filters or re-sync.", is_error=True)
             break
 
@@ -400,7 +401,7 @@ def play_session(client: SubsonicClient, db: PyGioNavDatabase,
             db.record_play(
                 album_id=album.id, artist=album.artist,
                 album_name=album.name, genre=album.genre,
-                duration=dur_str)
+                duration=total_dur)
 
             if do_scrobble:
                 ok = all(client.scrobble(s.id) for s in album.songs)
