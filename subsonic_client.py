@@ -178,6 +178,20 @@ class SubsonicClient:
 
     # ---- low-level ------------------------------------------------ #
 
+    def _error_from_root(self, root: ET.Element, default_msg: str) -> SubsonicError:
+        """Build a SubsonicError from a failed-response root element.
+
+        Subsonic <error> elements are attribute-only and therefore falsy, so the
+        namespaced lookup must be tested with `is None`, not truthiness.
+        """
+        err = root.find("sub:error", NS)
+        if err is None:
+            err = root.find("error")
+        if err is None:
+            return SubsonicError(0, default_msg)
+        return SubsonicError(int(err.get("code", 0)),
+                             err.get("message", default_msg))
+
     def _get(self, endpoint: str, **params) -> ET.Element:
         all_params = self._auth_params()
         all_params.update({k: str(v) for k, v in params.items() if v is not None})
@@ -188,12 +202,7 @@ class SubsonicClient:
         resp.raise_for_status()
         root = ET.fromstring(resp.content)
         if root.get("status") != "ok":
-            err = root.find("sub:error", NS)
-            if err is None:
-                err = root.find("error")
-            code = int(err.get("code", 0)) if err is not None else 0
-            msg = err.get("message", "Unknown error") if err is not None else "Unknown"
-            raise SubsonicError(code, msg)
+            raise self._error_from_root(root, "Unknown error")
         return root
 
     def _get_binary(self, endpoint: str, **params) -> requests.Response:
@@ -207,12 +216,7 @@ class SubsonicClient:
         ct = resp.headers.get("Content-Type", "")
         if "xml" in ct or "json" in ct:
             root = ET.fromstring(resp.content)
-            err = root.find("sub:error", NS)
-            if err is None:
-                err = root.find("error")
-            code = int(err.get("code", 0)) if err is not None else 0
-            msg = err.get("message", "Stream error") if err is not None else "Stream error"
-            raise SubsonicError(code, msg)
+            raise self._error_from_root(root, "Stream error")
         return resp
 
     # ---- system --------------------------------------------------- #
