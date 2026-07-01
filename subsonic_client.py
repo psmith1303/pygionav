@@ -188,7 +188,9 @@ class SubsonicClient:
         resp.raise_for_status()
         root = ET.fromstring(resp.content)
         if root.get("status") != "ok":
-            err = root.find("sub:error", NS) or root.find("error")
+            err = root.find("sub:error", NS)
+            if err is None:
+                err = root.find("error")
             code = int(err.get("code", 0)) if err is not None else 0
             msg = err.get("message", "Unknown error") if err is not None else "Unknown"
             raise SubsonicError(code, msg)
@@ -205,7 +207,9 @@ class SubsonicClient:
         ct = resp.headers.get("Content-Type", "")
         if "xml" in ct or "json" in ct:
             root = ET.fromstring(resp.content)
-            err = root.find("sub:error", NS) or root.find("error")
+            err = root.find("sub:error", NS)
+            if err is None:
+                err = root.find("error")
             code = int(err.get("code", 0)) if err is not None else 0
             msg = err.get("message", "Stream error") if err is not None else "Stream error"
             raise SubsonicError(code, msg)

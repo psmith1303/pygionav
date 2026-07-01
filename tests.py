@@ -268,6 +268,51 @@ class TestSubsonicError(unittest.TestCase):
         self.assertIn("Wrong password", str(e))
 
 
+class TestSubsonicErrorParsing(unittest.TestCase):
+    """Regression: a failed response must surface the real error code and
+    message.  Previously `find(...) or find(...)` discarded the childless
+    <error> element (empty elements are falsy) and reported 'error 0: Unknown'.
+    """
+
+    FAILED_TMPL = (
+        '<subsonic-response xmlns="http://subsonic.org/restapi" '
+        'status="failed" version="1.16.1">'
+        '<error code="{code}" message="{msg}"/>'
+        '</subsonic-response>'
+    )
+
+    def setUp(self):
+        self.c = SubsonicClient("http://myhost:4533", "user", "pwd")
+
+    def _failed_response(self, code, msg, *, binary=False):
+        resp = MagicMock()
+        resp.content = self.FAILED_TMPL.format(code=code, msg=msg).encode("utf-8")
+        resp.raise_for_status = MagicMock()
+        if binary:
+            resp.headers = {"Content-Type": "application/xml"}
+        return resp
+
+    def test_get_surfaces_real_error(self):
+        for code, msg in [(40, "Wrong username or password"),
+                          (70, "Requested data was not found")]:
+            with self.subTest(code=code):
+                self.c.session.get = MagicMock(
+                    return_value=self._failed_response(code, msg))
+                with self.assertRaises(SubsonicError) as ctx:
+                    self.c._get("ping")
+                self.assertEqual(ctx.exception.code, code)
+                self.assertEqual(ctx.exception.message, msg)
+
+    def test_get_binary_surfaces_real_error(self):
+        self.c.session.get = MagicMock(
+            return_value=self._failed_response(
+                40, "Wrong username or password", binary=True))
+        with self.assertRaises(SubsonicError) as ctx:
+            self.c._get_binary("stream", id="s1")
+        self.assertEqual(ctx.exception.code, 40)
+        self.assertEqual(ctx.exception.message, "Wrong username or password")
+
+
 # ====================================================================
 # Database
 # ====================================================================
