@@ -133,7 +133,7 @@ class TestExcludes(unittest.TestCase):
                 cfg = PyGioNavConfig()
                 cfg.excludes_file = f.name
                 excl = get_excludes(cfg)
-                self.assertEqual(excl, ["JOHN CAGE", "KARLHEINZ STOCKHAUSEN"])
+                self.assertEqual(excl, ["john cage", "karlheinz stockhausen"])
             finally:
                 os.unlink(f.name)
 
@@ -450,7 +450,7 @@ class TestDatabaseFiltering(unittest.TestCase):
 
     def test_filter_excludes(self):
         for _ in range(30):
-            rec = self.db.get_random_album({"excludes": ["MOZART", "BACH"]})
+            rec = self.db.get_random_album({"excludes": ["mozart", "bach"]})
             if rec:
                 self.assertEqual(rec["artist"], "Beatles")
 
@@ -484,10 +484,75 @@ class TestDatabaseFiltering(unittest.TestCase):
     def test_combined_filters(self):
         rec = self.db.get_random_album({
             "genre": "Classical", "min_duration": 1000,
-            "excludes": ["BACH"],
+            "excludes": ["bach"],
         })
         self.assertIsNotNone(rec)
         self.assertEqual(rec["artist"], "Mozart")
+
+    def test_case_insensitive_artist_lowercase(self):
+        rec = self.db.get_random_album({"artist": "mozart"})
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec["artist"], "Mozart")
+
+    def test_case_insensitive_artist_uppercase(self):
+        rec = self.db.get_random_album({"artist": "MOZART"})
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec["artist"], "Mozart")
+
+    def test_case_insensitive_artist_mixedcase(self):
+        rec = self.db.get_random_album({"artist": "moZart"})
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec["artist"], "Mozart")
+
+    def test_case_insensitive_genre_lowercase(self):
+        rec = self.db.get_random_album({"genre": "rock"})
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec["genre"], "Rock")
+
+    def test_case_insensitive_genre_uppercase(self):
+        rec = self.db.get_random_album({"genre": "CLASSICAL"})
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec["genre"], "Classical")
+
+    def test_case_insensitive_album_lowercase(self):
+        rec = self.db.get_random_album({"album": "abbey road"})
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec["album_name"], "Abbey Road")
+
+    def test_case_insensitive_album_uppercase(self):
+        rec = self.db.get_random_album({"album": "REQUIEM"})
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec["album_name"], "Requiem")
+
+    def test_case_insensitive_negate_artist_lowercase(self):
+        for _ in range(30):
+            rec = self.db.get_random_album({"artist": "mozart@"})
+            if rec:
+                self.assertNotEqual(rec["artist"], "Mozart")
+
+    def test_case_insensitive_negate_artist_uppercase(self):
+        for _ in range(30):
+            rec = self.db.get_random_album({"artist": "BEATLES@"})
+            if rec:
+                self.assertNotEqual(rec["artist"], "Beatles")
+
+    def test_case_insensitive_excludes_lowercase(self):
+        for _ in range(30):
+            rec = self.db.get_random_album({"excludes": ["mozart", "bach"]})
+            if rec:
+                self.assertIn(rec["artist"], ["Beatles"])
+
+    def test_case_insensitive_excludes_uppercase(self):
+        for _ in range(30):
+            rec = self.db.get_random_album({"excludes": ["MOZART", "BACH"]})
+            if rec:
+                self.assertIn(rec["artist"], ["Beatles"])
+
+    def test_case_insensitive_excludes_mixedcase(self):
+        for _ in range(30):
+            rec = self.db.get_random_album({"excludes": ["MoZart", "BaCh"]})
+            if rec:
+                self.assertIn(rec["artist"], ["Beatles"])
 
 
 class TestDatabasePlayTracking(unittest.TestCase):

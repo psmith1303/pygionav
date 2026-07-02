@@ -143,7 +143,7 @@ def load_config(config_path: Optional[str] = None) -> PyGioNavConfig:
 
 
 def get_excludes(cfg: PyGioNavConfig) -> List[str]:
-    """Read the excludes file and return excluded artist names (uppercased)."""
+    """Read the excludes file and return excluded artist names (lowercased)."""
     excludes: List[str] = []
     path = cfg.excludes_file
     if not path or not os.path.isfile(path):
@@ -152,6 +152,6 @@ def get_excludes(cfg: PyGioNavConfig) -> List[str]:
         for line in f:
             line = line.strip()
             if line and not line.startswith("#"):
-                excludes.append(line.upper())
+                excludes.append(line.lower())
     log.debug("Loaded %d excludes from %s", len(excludes), path)
     return excludes

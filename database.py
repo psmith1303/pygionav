@@ -173,7 +173,7 @@ class PyGioNavDatabase:
         Supported filter keys:
           artist, genre, album         - substring match (append @ to negate)
           min_duration, max_duration   - seconds
-          excludes                     - list of uppercased artist names
+          excludes                     - list of lowercased artist names
           time_bar_hours               - int
           unplayed_artist              - bool
           unplayed_works               - bool
@@ -190,11 +190,11 @@ class PyGioNavDatabase:
             val = filters.get(fkey)
             if val:
                 if val.endswith("@"):
-                    clauses.append(f"upper({col}) NOT LIKE ?")
-                    params.append(f"%{val[:-1].upper()}%")
+                    clauses.append(f"lower({col}) NOT LIKE ?")
+                    params.append(f"%{val[:-1].lower()}%")
                 else:
-                    clauses.append(f"upper({col}) LIKE ?")
-                    params.append(f"%{val.upper()}%")
+                    clauses.append(f"lower({col}) LIKE ?")
+                    params.append(f"%{val.lower()}%")
 
         if filters.get("min_duration", 0) > 0:
             clauses.append("duration >= ?")
@@ -206,8 +206,8 @@ class PyGioNavDatabase:
         excludes = filters.get("excludes", [])
         if excludes:
             ph = ",".join(["?"] * len(excludes))
-            clauses.append(f"upper(artist) NOT IN ({ph})")
-            params.extend(excludes)
+            clauses.append(f"lower(artist) NOT IN ({ph})")
+            params.extend([e.lower() for e in excludes])
 
         tb = filters.get("time_bar_hours", 0)
         if tb > 0:
