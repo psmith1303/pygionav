@@ -1,0 +1,19 @@
+#+title: PyGioNav
+
+A Python rewrite of Howard Rogers' Giocoso music player, streaming from a
+Navidrome server (Subsonic API) instead of local FLAC files. Picks albums
+at random (optionally filtered by artist, genre, album, duration, or
+library), pre-downloads every track so ffmpeg can play them gaplessly,
+tracks plays in SQLite, and scrobbles through Navidrome.
+
+Full feature list, configuration and usage are in [[file:README.md][README.md]].
+
+* Contents
+
+- [[file:pygionav.py][pygionav.py]] :: CLI entry point and main play loop.
+- [[file:subsonic_client.py][subsonic_client.py]] :: Navidrome / Subsonic API client.
+- [[file:player.py][player.py]] :: Track caching and gapless ffmpeg playback.
+- [[file:database.py][database.py]] :: SQLite play history, time bar, unplayed modes.
+- [[file:display.py][display.py]] :: Terminal display, progress bar, album art (sixel).
+- [[file:config.py][config.py]] :: Configuration loading; see =pygionav.conf.example=.
+- [[file:tests.py][tests.py]] :: Test suite.
