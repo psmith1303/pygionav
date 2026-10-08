@@ -216,9 +216,9 @@ git status
 
 git commit -m "Initial commit of PyGioNav"
 
-git branch -M main
+git branch -M master
 git remote add origin git@github.com:YOUR_USERNAME/pygionav.git
-git push -u origin main
+git push -u origin master
 ```
 
 Replace `YOUR_USERNAME` with your GitHub username.  If you prefer HTTPS over SSH:
