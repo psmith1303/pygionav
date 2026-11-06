@@ -13,7 +13,7 @@ subsonic_client.py      Subsonic REST API client (token auth, XML parsing)
 database.py             Local SQLite for library cache + play tracking (PyGioNavDatabase)
 player.py               Pre-cache download + ffmpeg concat gapless playback (AlbumPlayer)
 display.py              ANSI terminal output and formatting
-tests.py                59 unit tests (unittest)
+tests.py                unit tests (unittest)
 ```
 
 ## Key design decisions
@@ -23,14 +23,10 @@ tests.py                59 unit tests (unittest)
 - **Config file**: INI format with a `[pygionav]` section. Lives at `~/.local/share/pygionav/pygionav.conf`. The `.example` file has placeholders; the real file is gitignored.
 - **Credentials never in repo**: `.gitignore` blocks `pygionav.conf`, `*.db`, `debug.log`, `albumart.jpg`.
 
-## User's environment
+## Environment
 
-- Runs on WSL (Windows Subsystem for Linux) — not bare-metal Linux
-- Python 3.13
-- Repo lives on an NTFS-mounted Windows drive (`/mnt/z/`), which causes permission issues with pytest cache — solved by `pyproject.toml` redirecting cache to `/tmp/`
-- Prefers Python for projects
-- Values robustness over speed
-- Uses PulseAudio via WSL for audio output
+- Runs on WSL, with audio through PulseAudio via WSL. Python 3.13.
+- The repo is on `/mnt/z/` (NTFS), where the pytest cache hits permission errors, so `pyproject.toml` puts the cache in `/tmp/`.
 
 ## Running tests
 
@@ -40,7 +36,7 @@ python3 -m pytest tests.py -v
 python3 tests.py
 ```
 
-All 66 tests should pass with 0 warnings. If pytest cache warnings appear, check that `pyproject.toml` has `cache_dir = "/tmp/.pytest_cache"`.
+The suite should pass with 0 warnings. If pytest cache warnings appear, check that `pyproject.toml` has `cache_dir = "/tmp/.pytest_cache"`.
 
 ## Important conventions
 
